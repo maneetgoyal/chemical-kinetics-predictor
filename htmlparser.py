@@ -164,6 +164,20 @@ class RxnDetailsExtractor:
         self.tsv_created = True
         self.tsv_reference_created = True
 
+    @staticmethod
+    def send_records_to_hdf(records_file, dataframe_key, output_hdf):
+        """
+        This method transfer the records (xlsx) file to a pandas dataframe and then store that DF to a HDF5.
+        :param records_file: Input xlsx file
+        :param dataframe_key: Key (name) of the dataframe created from records_csv
+        :param output_hdf: Output HDF path
+        :return: None
+        """
+        # Reading records_csv as a DF
+        records_df = pd.read_excel(records_file, index_col=0, header=0, na_values=["ï¿½", "�"])
+        pointer_to_df = pd.HDFStore(output_hdf)  # Opening the output_hdf file
+        pointer_to_df.put(dataframe_key, records_df)  # Putting DF into HDF5
+        pointer_to_df.close()  # Closing HDF5 file
 
 # # Read HREFs into the input tsv file path
 # myRxnExtrator = RxnDetailsExtractor(r"PreliminaryOutput\reactions.tsv")

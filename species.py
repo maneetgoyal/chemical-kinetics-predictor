@@ -1,7 +1,8 @@
 import pandas as pd
 from chemspipy import ChemSpider
-import ast
 import logging
+import requests
+import math
 logging.basicConfig(level=logging.DEBUG)
 
 class Populator:
@@ -357,6 +358,53 @@ class Populator:
 
         print("-- Dataframes written to Excel files (.xlsx) --")
 
+    @staticmethod
+    def get_pubchem_data(output_hdf, species_df_key):
+        """
+        Augments the species dataframe with pubchem data based on CID
+        :param output_hdf: File where the older species df is read from and
+        where the updated species df will be stored
+        :param species_df_key: species df key in the output_hdf
+        :return: None
+        """
+        species_df = pd.read_hdf(output_hdf, species_df_key)  # Reading the DF
+
+        # Creating BondsInfo column if it doesnt exist already
+        if 'BondsInfo' not in species_df.columns:
+            bonds_info = [""]*(len(species_df.index))
+            species_df['BondsInfo'] = bonds_info
+
+        for idx, row in species_df.iterrows():
+            if not math.isnan(row['CID']) and row['BondsInfo'] == "":
+                cid = int(row['CID'])
+                r = requests.get('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/record/json'.format(cid))
+                species_df.at[idx, 'BondsInfo'] = r.text
+                print("{} done".format(idx))
+
+        # Writing back to HDF5 file
+        my_hdf = pd.HDFStore(output_hdf)
+        my_hdf[species_df_key] = species_df
+        my_hdf.close()
+
+    @staticmethod
+    def inject_new_data_to_species(new_species_xlsx, output_hdf5, species_df_key):
+        """
+        Helps to inject new data to the species dataframe as more CIDs are fetched manually
+        :param new_species_xlsx: New Species xlsx file which stores newly fetched CIDs
+        :param output_hdf5: Output HDF% file that houses species df
+        :param species_df_key: Specied df key in output_hdf5 file
+        :return: None
+        """
+        new_species_df = pd.read_excel(new_species_xlsx, index_col=0, header=0)
+        hdf5_fp = pd.HDFStore(output_hdf5)
+        old_species_df = hdf5_fp[species_df_key]
+        old_species_df['CID'] = new_species_df['CID']
+        hdf5_fp[species_df_key] = old_species_df
+        hdf5_fp.close()
+
+        # Pushing new species data into df
+        Populator.get_pubchem_data(output_hdf5, species_df_key)
+        return None
 
 # Code Run Check
 # my_populator = Populator()
@@ -375,3 +423,5 @@ class Populator:
 # Populator.status_check('NewGen2Output/NewGen.h5', 'Reactions', 'Species')
 # Populator.reaction_status('NewGen2Output/NewGen.h5', 'Reactions', 'Species')
 # Populator.print_all_to_excel('NewGen2Output/NewGen.h5')
+
+Populator.get_pubchem_data("PreliminaryOutput/DemoGenerated/DataDF.h5", "Species")
