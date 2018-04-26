@@ -377,9 +377,10 @@ class Populator:
         for idx, row in species_df.iterrows():
             if not math.isnan(row['CID']) and row['BondsInfo'] == "":
                 cid = int(row['CID'])
-                r = requests.get('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/record/json'.format(cid))
-                species_df.at[idx, 'BondsInfo'] = r.text
-                print("{} done".format(idx))
+                if cid != -1:
+                    r = requests.get('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/record/json'.format(cid))
+                    species_df.at[idx, 'BondsInfo'] = r.text
+                    print("{} done".format(idx))
 
         # Writing back to HDF5 file
         my_hdf = pd.HDFStore(output_hdf)
@@ -424,4 +425,4 @@ class Populator:
 # Populator.reaction_status('NewGen2Output/NewGen.h5', 'Reactions', 'Species')
 # Populator.print_all_to_excel('NewGen2Output/NewGen.h5')
 
-Populator.get_pubchem_data("PreliminaryOutput/DemoGenerated/DataDF.h5", "Species")
+# Populator.get_pubchem_data("PreliminaryOutput/DemoGenerated/DataDF.h5", "Species")

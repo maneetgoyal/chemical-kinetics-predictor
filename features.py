@@ -96,13 +96,67 @@ class FeatureConstructor:
                     feature_vec[idx[0]] = feature_vec[idx[0]] + 1
         return feature_vec
 
-    def bond_brk(self, reactant_cid, reactant_str_json, product_cid, product_str_json):
+    def bond_brk(self, reactant_cid_list, reactant_vec_list, product_cid_list, product_vec_list):
+        """
+        Calculates the feature vector of reactions.
+        :param reactant_cid_list: List of CIDs of the reactants
+        :param reactant_vec_list: List of feature vectors of the reactant species
+        :param product_cid_list: List of CIDs of the products
+        :param product_vec_list: list of Feature Vectors of the product species
+        :return: Reaction Feature Vector
+        """
 
-        bond_change = \
-            sum([FeatureConstructor.bonds_count_json(self, prod_cid, product_str_json) for prod_cid in product_cid]) \
-            - sum([FeatureConstructor.bonds_count_json(self, reac_cid, reactant_str_json) for reac_cid in reactant_cid])
+        prod_sum = np.zeros(len(self.bond_vec.index))
+        reac_sum = np.zeros(len(self.bond_vec.index))
+
+        for idx, ele in enumerate(product_cid_list):
+            if str(ele) == "-1":
+                prod_sum = prod_sum + FeatureConstructor.bonds_count_json(self, -1, None)
+            else:
+                prod_sum = prod_sum + FeatureConstructor.bonds_count_json(self, None, product_vec_list[idx])
+
+        for idx, ele in enumerate(reactant_cid_list):
+            if str(ele) == "-1":
+                reac_sum = reac_sum + FeatureConstructor.bonds_count_json(self, -1, None)
+            else:
+                reac_sum = reac_sum + FeatureConstructor.bonds_count_json(self, None, reactant_vec_list[idx])
+        #
+        # bond_change = \
+        #     sum([FeatureConstructor.bonds_count_json(self, prod_cid, product_str_json_list) for prod_cid in product_cid_list]) \
+        #     - sum([FeatureConstructor.bonds_count_json(self, reac_cid, reactant_str_json_list) for reac_cid in reactant_cid_list])
+
+        bond_change = prod_sum - reac_sum
 
         return list(bond_change)
+
+    def get_species_subset(self, output_hdf, species_df_key, subset_species_df_key):
+        """
+        Creates a subset dataframe of the species whose feature vector has been identified
+        :param output_hdf: HDF5 file path
+        :param species_df_key: Species Dataframe key
+        :param subset_species_df_key: Subset-Species Dataframe Key
+        :return: None
+        """
+        species_df = pd.read_hdf(output_hdf, species_df_key)
+        subset_species_df = species_df.query('CID >= -1')
+        subset_species_df['CID'] = subset_species_df['CID'].astype(int)
+        subset_species_df = subset_species_df.reset_index()
+        subset_species_df = subset_species_df.set_index(keys='CID', drop='False', verify_integrity=True)
+
+        # Adding feature vectors to the species subset dataframe
+        subset_species_df['FeatureVector'] = [""] * len(subset_species_df.index)
+
+        # Appending feature vectors
+        for idx, row in subset_species_df.iterrows():
+            if idx == -1:
+                subset_species_df.at[idx, 'FeatureVector'] = FeatureConstructor.bonds_count_json(self, -1, None)
+            else:
+                subset_species_df.at[idx, 'FeatureVector'] = FeatureConstructor.bonds_count_json(self, None, row['BondsInfo'])
+
+        # Storing the subset dataframe
+        subset_species_df = subset_species_df.reset_index()
+        subset_species_df = subset_species_df.set_index(keys='SID', drop='False', verify_integrity=True)
+        subset_species_df.to_hdf(output_hdf, subset_species_df_key)
 
 
 # Code run check

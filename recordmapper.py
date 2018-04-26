@@ -121,6 +121,7 @@ class RecordMapper:
                 sid_to_cid[sid] = math.nan
             else:
                 sid_to_cid[sid] = int(species_row['CID'])
+                print(sid_to_cid[sid])
 
         # Appending reactant and product cid list column
         reaction_dataframe['ReactantCID'] = [[] for _ in reaction_dataframe.index]
@@ -138,4 +139,7 @@ class RecordMapper:
 # Code Run Check
 # RecordMapper.fill_rxn_order('NewGen2Output/NewGen.h5', 'Reactions', 'Records')
 # RecordMapper.fill_activ_enrgy('NewGen2Output/NewGen.h5', 'Reactions', 'Records')
-# RecordMapper.map_rid_to_cid('NewGen2Output/NewGen.h5', 'Reactions', 'Species')
+
+RecordMapper.map_rid_to_cid('PreliminaryOutput/DemoGenerated/DataDF.h5', 'Reactions', 'Species')
+aa = pd.read_hdf('PreliminaryOutput/DemoGenerated/DataDF.h5', 'Reactions')
+aa.to_excel("out.xlsx")
