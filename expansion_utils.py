@@ -90,20 +90,21 @@ class Extender:
                     old_df_from_hdf.at[row['Species'], 'FeatureVector'] = my_constructor.bonds_count_json(None, pubchem_str_json)
                     new_species_count = new_species_count + 1
 
-        # Updating HDF with updated species df
-        old_df_from_hdf = old_df_from_hdf.reset_index()
-        old_df_from_hdf = old_df_from_hdf.set_index(keys="SID", verify_integrity=True)
-        old_df_from_hdf.to_hdf(output_hdf5, species_df_key)
-
         print('--Status--')
         print('--{} New Species Added--'.format(new_species_count))
 
         if new_species_count == 0:
 
-            print('No new species to add.')
+            print('No new changes were made as there were no new species to add.')
             return
 
         else:
+
+            # Updating HDF with updated species df
+            old_df_from_hdf = old_df_from_hdf.reset_index()
+            old_df_from_hdf = old_df_from_hdf.set_index(keys="SID", verify_integrity=True)
+            old_df_from_hdf.to_hdf(output_hdf5, species_df_key)
+
             # Updating Reactions DF with new CID list
             rm.RecordMapper.map_rid_to_cid(output_hdf5, rxn_df_key, species_df_key)
 
