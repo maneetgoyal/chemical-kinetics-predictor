@@ -3,6 +3,7 @@ import requests
 import json
 import numpy as np
 import pandas as pd
+import math
 
 class FeatureConstructor:
 
@@ -80,85 +81,95 @@ class FeatureConstructor:
         fetched from Pubchem using Pubchem ID of chemical
         :return: Feature vector of the input chemical
         """
+        feature_vec = np.zeros(len(self.bond_vec))
         if cid == -1:  # Artificial CID for .CH Radical
-            feature_vec = np.zeros(len(self.bond_vec))
             feature_vec[21] = 1
             feature_vec[35] = 1
-        else:
+        elif cid == -2:  # Handling M (Catalyst)
+            pass
+        elif cid in [-3, -4]:  # Handling missing products/reactants cases
+            return None
+        else:  # Handling valid CIDs
             bonds = FeatureConstructor.json_str(self, stringified_json)
-            feature_vec = np.zeros(len(self.bond_vec))
             bond_vec = np.array(self.bond_vec)
-
             # we construct a feature vector containing counting on different bonds
             for i, bond in enumerate(bonds):
                 if np.any(bond_vec == bond):
                     idx = np.where(bond_vec == bond)
                     feature_vec[idx[0]] = feature_vec[idx[0]] + 1
+
         return feature_vec
 
-    def bond_brk(self, reactant_cid_list, reactant_vec_list, product_cid_list, product_vec_list):
+    def bond_brk(self, input_hdf, species_df_key, input_rxn_df):
         """
-        Calculates the feature vector of reactions.
-        :param reactant_cid_list: List of CIDs of the reactants
-        :param reactant_vec_list: List of feature vectors of the reactant species
-        :param product_cid_list: List of CIDs of the products
-        :param product_vec_list: list of Feature Vectors of the product species
-        :return: Reaction Feature Vector
+        Calculates the feature vectors of all the reactions in the given dataframe
+        :param input_hdf: As title
+        :param species_df_key: Species Dataframe key
+        :param input_rxn_df: Reaction Dataframe
+        :return: Reaction Dataframe with feature vectors
         """
 
-        prod_sum = np.zeros(len(self.bond_vec.index))
-        reac_sum = np.zeros(len(self.bond_vec.index))
+        # Species dataframe; it's indexed at SID
+        species_df = pd.read_hdf(input_hdf, species_df_key)
 
-        for idx, ele in enumerate(product_cid_list):
-            if str(ele) == "-1":
-                prod_sum = prod_sum + FeatureConstructor.bonds_count_json(self, -1, None)
-            else:
-                prod_sum = prod_sum + FeatureConstructor.bonds_count_json(self, None, product_vec_list[idx])
+        # Start populating feature vectors
+        feat_vec = [""]*len(input_rxn_df.index)
+        input_rxn_df['FeatureVector'] = feat_vec
+        for idx, row in input_rxn_df.iterrows():
 
-        for idx, ele in enumerate(reactant_cid_list):
-            if str(ele) == "-1":
-                reac_sum = reac_sum + FeatureConstructor.bonds_count_json(self, -1, None)
-            else:
-                reac_sum = reac_sum + FeatureConstructor.bonds_count_json(self, None, reactant_vec_list[idx])
-        #
-        # bond_change = \
-        #     sum([FeatureConstructor.bonds_count_json(self, prod_cid, product_str_json_list) for prod_cid in product_cid_list]) \
-        #     - sum([FeatureConstructor.bonds_count_json(self, reac_cid, reactant_str_json_list) for reac_cid in reactant_cid_list])
+            # Initializing feature vector components
+            prod_sum = np.zeros(len(self.bond_vec))
+            reac_sum = np.zeros(len(self.bond_vec))
 
-        bond_change = prod_sum - reac_sum
+            # SID lists
+            product_sid_list = row['Reactants_SIDs_List']
+            reactant_sid_list = row['Products_SIDs_List']
 
-        return list(bond_change)
+            # Getting feature of products
+            for ele in product_sid_list:
+                prod_sum = prod_sum + species_df.at[ele, 'FeatureVector']
 
-    def get_species_subset(self, output_hdf, species_df_key, subset_species_df_key):
+            # Getting feature vector of reactants
+            for ele in reactant_sid_list:
+                reac_sum = reac_sum + species_df.at[ele, 'FeatureVector']
+
+            # Getting feature vector of reaction
+            bond_change = prod_sum - reac_sum
+
+            # Updating the reaction data frame
+            input_rxn_df.at[idx, 'FeatureVector'] = bond_change
+
+        return input_rxn_df
+
+    def create_species_feat_vec(self, output_hdf, species_df_key):
         """
         Creates a subset dataframe of the species whose feature vector has been identified
         :param output_hdf: HDF5 file path
         :param species_df_key: Species Dataframe key
-        :param subset_species_df_key: Subset-Species Dataframe Key
         :return: None
         """
         species_df = pd.read_hdf(output_hdf, species_df_key)
-        subset_species_df = species_df.query('CID >= -1')
-        subset_species_df['CID'] = subset_species_df['CID'].astype(int)
-        subset_species_df = subset_species_df.reset_index()
-        subset_species_df = subset_species_df.set_index(keys='CID', drop='False', verify_integrity=True)
 
-        # Adding feature vectors to the species subset dataframe
-        subset_species_df['FeatureVector'] = [""] * len(subset_species_df.index)
+        # Adding feature vectors to the species dataframe
+        species_df['FeatureVector'] = [""] * len(species_df.index)
 
         # Appending feature vectors
-        for idx, row in subset_species_df.iterrows():
-            if idx == -1:
-                subset_species_df.at[idx, 'FeatureVector'] = FeatureConstructor.bonds_count_json(self, -1, None)
-            else:
-                subset_species_df.at[idx, 'FeatureVector'] = FeatureConstructor.bonds_count_json(self, None, row['BondsInfo'])
+        for idx, row in species_df.iterrows():
+            if row['CID'] != "" and not math.isnan(row['CID']):
+                if row['CID'] <= 0:  # Handling artificial/invalid CIDs
+                    artficial_bond_count = FeatureConstructor.bonds_count_json(self, row['CID'], None)
+                    if artficial_bond_count is not None:
+                        species_df.at[idx, 'FeatureVector'] = artficial_bond_count
+                else:  # Handling valid CIDs
+                    species_df.at[idx, 'FeatureVector'] = FeatureConstructor.bonds_count_json(self, None, row['BondsInfo'])
 
-        # Storing the subset dataframe
-        subset_species_df = subset_species_df.reset_index()
-        subset_species_df = subset_species_df.set_index(keys='SID', drop='False', verify_integrity=True)
-        subset_species_df.to_hdf(output_hdf, subset_species_df_key)
+        # Updating the species dataframe in the HDF file
+        species_df.to_hdf(output_hdf, species_df_key)
 
 
 # Code run check
 # my_constructor = FeatureConstructor("FeatureLibrary/elements.csv", "FeatureLibrary/bonds.csv")
 # print(my_constructor.bonds_count_json(1000))
+
+my_constructor = FeatureConstructor("FeatureLibrary/elements.csv", "FeatureLibrary/bonds.csv")
+my_constructor.create_species_feat_vec('PreliminaryOutput/DemoGenerated/DataDF.h5', 'Species')

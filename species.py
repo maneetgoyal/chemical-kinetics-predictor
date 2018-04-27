@@ -63,16 +63,20 @@ class Populator:
             unique_species_set.update(product_as_names[idx])
             idx = idx + 1
 
-        # Appending the column containing cleaned reactants to the reaction dataframe
+        # Appending the column containing cleaned reactants and products to the 'Reaction' dataframe
         self.reactions_dataframe['Reactants_List'] = reactant_as_names
         self.reactions_dataframe['Products_List'] = product_as_names
 
-        # Converting Reactants Set to Reactants Dict (list will have unique species by default)
-        species_id = 0
+        # Set doesn't preserve the order; the order of element may differ from the order they were added
+        # into the set. So, converting set to list, then sorting it so that we always get same order
+        # and consequently, same Species ID
+        unique_species_list = list(unique_species_set)
+        unique_species_list.sort()
+
+        # Converting Species List to Species Dict (list will have unique species by default)
         self.unique_species_dict = {}
-        for ele in unique_species_set:
-            self.unique_species_dict[ele] = species_id
-            species_id = species_id + 1
+        for idx, ele in enumerate(unique_species_list):
+            self.unique_species_dict[ele] = idx
 
         # Converting individual reactants to reactant ID
         reactants_as_sids = [""]*len(self.reactions_dataframe.index)  # Column that will store cleaned reactants IDs
@@ -91,8 +95,8 @@ class Populator:
         self.reactions_dataframe.to_hdf(path_or_buf=output_hdf5, key=output_reaction_df, mode='a')
 
         # Writing unique reactants into a data frame
-        just_the_keys = list(self.unique_species_dict.keys())
-        just_the_values = list(self.unique_species_dict.values())
+        just_the_keys = unique_species_list
+        just_the_values = range(len(unique_species_list))
         input_to_reactant_df = {'Species': just_the_keys, 'SID': just_the_values}
         self.species_df = pd.DataFrame(data=input_to_reactant_df)
         self.species_df = self.species_df.set_index('SID')
@@ -316,7 +320,7 @@ class Populator:
 
             # Checking whether products are available for that reaction
             for prod in row['Products_List']:
-                if prod == 'Products' or prod == 'Other Products':
+                if prod in ['Products', 'Other Products']:
                     reaction_dataframe.at[_, 'Products_Available'] = False
                     break
 
@@ -349,16 +353,6 @@ class Populator:
         print("-- Boolean Flags Assigned --\n")
 
     @staticmethod
-    def print_all_to_excel(input_hdf5, directory_path):
-        data_store = pd.HDFStore(input_hdf5)  # Opening the HDF5 file
-        for each_key in data_store.keys():
-            data_store[each_key].to_excel(directory_path + each_key + ".xlsx")  # '/' missing between folder name and
-            # file name because file name already includes it.
-        data_store.close()
-
-        print("-- Dataframes written to Excel files (.xlsx) --")
-
-    @staticmethod
     def get_pubchem_data(output_hdf, species_df_key):
         """
         Augments the species dataframe with pubchem data based on CID
@@ -377,7 +371,7 @@ class Populator:
         for idx, row in species_df.iterrows():
             if not math.isnan(row['CID']) and row['BondsInfo'] == "":
                 cid = int(row['CID'])
-                if cid != -1:
+                if cid > 0:  # Handling valid CIDs
                     r = requests.get('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/record/json'.format(cid))
                     species_df.at[idx, 'BondsInfo'] = r.text
                     print("{} done".format(idx))
@@ -387,25 +381,6 @@ class Populator:
         my_hdf[species_df_key] = species_df
         my_hdf.close()
 
-    @staticmethod
-    def inject_new_data_to_species(new_species_xlsx, output_hdf5, species_df_key):
-        """
-        Helps to inject new data to the species dataframe as more CIDs are fetched manually
-        :param new_species_xlsx: New Species xlsx file which stores newly fetched CIDs
-        :param output_hdf5: Output HDF% file that houses species df
-        :param species_df_key: Specied df key in output_hdf5 file
-        :return: None
-        """
-        new_species_df = pd.read_excel(new_species_xlsx, index_col=0, header=0)
-        hdf5_fp = pd.HDFStore(output_hdf5)
-        old_species_df = hdf5_fp[species_df_key]
-        old_species_df['CID'] = new_species_df['CID']
-        hdf5_fp[species_df_key] = old_species_df
-        hdf5_fp.close()
-
-        # Pushing new species data into df
-        Populator.get_pubchem_data(output_hdf5, species_df_key)
-        return None
 
 # Code Run Check
 # my_populator = Populator()

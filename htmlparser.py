@@ -58,7 +58,7 @@ class TableCreator:
             pointer_to_tsv.close()  # Closing the output file
             self.txt_created = True
             print("----Status----")
-            print("All reactions written into the output .tsv file in TSV format.")
+            print("All reactions written into the output .tsv file.")
 
 # Creating table in-memory from the input HTML file
 # myTableCreator = TableCreator(r"G:\References\MS1\Spring2018\CHBE\Project\NIST Chemical Kinetics Database.html")
