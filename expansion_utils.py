@@ -2,8 +2,10 @@
 import pandas as pd
 import re
 import math
+import features as ft
+import recordmapper as rm
 
-class ExpansionUtils:
+class Extender:
 
     @staticmethod
     def export_all_to_excel(input_hdf5, out_directory_path):
@@ -42,7 +44,7 @@ class ExpansionUtils:
         for idx, row in rxn_df.iterrows():
             cid_list = row['ReactantCID'] + row['ProductCID']
             for ele in cid_list:
-                if math.isnan(ele) or re.search("adduct", row['Reactants']+row['Products'], re.IGNORECASE) is not None:
+                if math.isnan(ele) or re.search("adduct", row['Reactants']+row['Products'], re.IGNORECASE):
                     to_be_dropped.append(idx)
                     break
 
@@ -50,24 +52,76 @@ class ExpansionUtils:
         return rxn_df
 
     @staticmethod
-    def inject_new_data_to_species(new_species_xlsx, output_hdf5, species_df_key):
+    def expand_data(new_species_xlsx, output_hdf5, species_df_key, rxn_df_key, elements_csv, bonds_csv, new_xlsx_path):
         """
         Helps to inject new data to the species dataframe as more CIDs are fetched manually
         :param new_species_xlsx: New Species xlsx file which stores newly fetched CIDs
         :param output_hdf5: Output HDF% file that houses species df
         :param species_df_key: Specied df key in output_hdf5 file
-        :return: None
+        :param rxn_df_key:
+        :param elements_csv:
+        :param bonds_csv:
+        :param new_xlsx_path:
+        :return: New data for ML experiments
         """
-        new_species_df = pd.read_excel(new_species_xlsx, index_col=0, header=0)
-        hdf5_fp = pd.HDFStore(output_hdf5)
-        old_species_df = hdf5_fp[species_df_key]
-        old_species_df['CID'] = new_species_df['CID']
-        hdf5_fp[species_df_key] = old_species_df
-        hdf5_fp.close()
 
-        # Pushing new species data into df
-        # Populator.get_pubchem_data(output_hdf5, species_df_key)
-        return None
+        # Reading xlsx files which contains newly fetched PubChem IDs into pandas df
+        new_df_from_xlsx = pd.read_excel(new_species_xlsx, header=0)
+
+        # Reading old Species dataframe to which new PubChem ids have to be transfered
+        old_df_from_hdf = pd.read_hdf(output_hdf5, species_df_key)
+
+        # Setting 'Species' name as index for efficiency
+        old_df_from_hdf = old_df_from_hdf.reset_index()
+        old_df_from_hdf = old_df_from_hdf.set_index(keys="Species", verify_integrity=True)
+
+        # Initializing FeatureConstructor
+        my_constructor = ft.FeatureConstructor(elements_csv, bonds_csv)
+
+        # Transfering CID, adding BondsInfo (stringified PubChem JSON), adding species feature vector
+        new_species_count = 0
+        for idx, row in new_df_from_xlsx.iterrows():
+            if not math.isnan(row['CID']) and row['CID'] != "":
+                if math.isnan(old_df_from_hdf.at[row['Species'], 'CID']) or old_df_from_hdf.at[row['Species'], 'CID'] == "":
+                    old_df_from_hdf.at[row['Species'], 'CID'] = row['CID']
+                    pubchem_str_json = my_constructor.get_full(row['CID'])
+                    print("--Data fetched for CID {}--".format(int(row['CID'])))
+                    old_df_from_hdf.at[row['Species'], 'BondsInfo'] = pubchem_str_json
+                    old_df_from_hdf.at[row['Species'], 'FeatureVector'] = my_constructor.bonds_count_json(None, pubchem_str_json)
+                    new_species_count = new_species_count + 1
+
+        # Updating HDF with updated species df
+        old_df_from_hdf = old_df_from_hdf.reset_index()
+        old_df_from_hdf = old_df_from_hdf.set_index(keys="SID", verify_integrity=True)
+        old_df_from_hdf.to_hdf(output_hdf5, species_df_key)
+
+        print('--Status--')
+        print('--{} New Species Added--'.format(new_species_count))
+
+        if new_species_count == 0:
+
+            print('No new species to add.')
+            return
+
+        else:
+            # Updating Reactions DF with new CID list
+            rm.RecordMapper.map_rid_to_cid(output_hdf5, rxn_df_key, species_df_key)
+
+            # Filetring out reactions whose feature vectors can be calculated
+            reduced_rxn_df = Extender.get_rxn_subset(output_hdf5, rxn_df_key)
+
+            # Creating feature vectors of the filtered out reactions
+            reduced_rxn_df = my_constructor.bond_brk(output_hdf5, species_df_key, reduced_rxn_df)
+
+            print('--Status--')
+            print('--Reactions Feature Vectors Created--')
+
+            # Creating the new reactions xlsx for ML Training
+            reduced_rxn_df.to_excel(new_xlsx_path)
+
+            print('--Status--')
+            print('--Database Expansion Routine Complete--')
+
 
 # Code run check
 # ExpansionUtils.get_rxn_subset('PreliminaryOutput/DemoGenerated/DataDF.h5', 'Reactions')

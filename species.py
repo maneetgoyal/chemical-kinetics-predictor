@@ -7,7 +7,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 class Populator:
     """
-    Populates the dataframe with ChemSpider Results
+    Populates the dataframe with ChemSpider/PubChem Results
     """
     def __init__(self):
         """

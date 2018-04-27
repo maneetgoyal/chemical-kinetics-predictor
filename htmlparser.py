@@ -188,7 +188,7 @@ class RxnDetailsExtractor:
 
 class Urldownloader:
     """
-    Downloads the network objected denoted by the url named as object variable, "pointing_to"
+    Downloads the network object denoted by the url named as object variable, "pointing_to"
     """
     def __init__(self):
         """

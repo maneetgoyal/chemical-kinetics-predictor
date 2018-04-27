@@ -99,19 +99,19 @@ class RecordMapper:
         print("--Records stored into HDF5 file--")
 
     @staticmethod
-    def map_rid_to_cid(output_hdf5, output_reaction_df, input_species_df):
+    def map_rid_to_cid(output_hdf5, output_reaction_df_key, input_species_df_key):
         """
         Map SID list to CID list
         :param output_hdf5: HDF5 data store path
-        :param output_reaction_df: Reaction dataframe key
-        :param input_species_df: Species dataframe key
+        :param output_reaction_df_key: Reaction dataframe key
+        :param input_species_df_key: Species dataframe key
         :return: None
         """
 
         # Reading dataframes from the HDF5 file
         data_store = pd.HDFStore(output_hdf5)  # Opening the HDF5 file
-        reaction_dataframe = data_store[output_reaction_df]  # Reading the dataframe
-        species_dataframe = data_store[input_species_df]  # Reading the dataframe
+        reaction_dataframe = data_store[output_reaction_df_key]  # Reading the dataframe
+        species_dataframe = data_store[input_species_df_key]  # Reading the dataframe
         data_store.close()
 
         # Creating a dict key:value ==> sid:cid
@@ -130,7 +130,7 @@ class RecordMapper:
             reaction_dataframe.at[idx, 'ProductCID'] = [sid_to_cid[ele] for ele in rxn_row['Products_SIDs_List']]
 
         # Store to HDF Data store
-        reaction_dataframe.to_hdf(path_or_buf=output_hdf5, key=output_reaction_df, mode='a')
+        reaction_dataframe.to_hdf(path_or_buf=output_hdf5, key=output_reaction_df_key, mode='a')
 
         print("--Records stored into HDF5 file--")
 

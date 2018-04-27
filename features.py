@@ -25,7 +25,7 @@ class FeatureConstructor:
         :param cid: PubChem ID of a Chemical
         :return: Stringified JSON of Chemical's Data
         """
-        r = requests.get('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/record/json'.format(cid))
+        r = requests.get('https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{}/record/json'.format(int(cid)))
         return r.text
 
     def json_str(self, stringified_json):
@@ -102,7 +102,7 @@ class FeatureConstructor:
 
     def bond_brk(self, input_hdf, species_df_key, input_rxn_df):
         """
-        Calculates the feature vectors of all the reactions in the given dataframe
+        Calculates the feature vectors of all the reactions in the given dataframe.
         :param input_hdf: As title
         :param species_df_key: Species Dataframe key
         :param input_rxn_df: Reaction Dataframe
@@ -115,6 +115,7 @@ class FeatureConstructor:
         # Start populating feature vectors
         feat_vec = [""]*len(input_rxn_df.index)
         input_rxn_df['FeatureVector'] = feat_vec
+
         for idx, row in input_rxn_df.iterrows():
 
             # Initializing feature vector components
@@ -170,6 +171,5 @@ class FeatureConstructor:
 # Code run check
 # my_constructor = FeatureConstructor("FeatureLibrary/elements.csv", "FeatureLibrary/bonds.csv")
 # print(my_constructor.bonds_count_json(1000))
-
-my_constructor = FeatureConstructor("FeatureLibrary/elements.csv", "FeatureLibrary/bonds.csv")
-my_constructor.create_species_feat_vec('PreliminaryOutput/DemoGenerated/DataDF.h5', 'Species')
+# my_constructor = FeatureConstructor("FeatureLibrary/elements.csv", "FeatureLibrary/bonds.csv")
+# my_constructor.create_species_feat_vec('PreliminaryOutput/DemoGenerated/DataDF.h5', 'Species')

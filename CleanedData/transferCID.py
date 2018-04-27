@@ -44,4 +44,4 @@ def transfer_cid(old_xlsx_file_path, hdf_file_path, species_df_key, new_xlsx_fil
     new_df.to_hdf(hdf_file_path, "Species")
 
 
-transfer_cid("species.xlsx", '../PreliminaryOutput/DemoGenerated/DataDF.h5', 'Species', "new_species.xlsx")
+# transfer_cid("species.xlsx", '../PreliminaryOutput/DemoGenerated/DataDF.h5', 'Species', "new_species.xlsx")
