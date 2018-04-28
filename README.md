@@ -1,6 +1,8 @@
 # kineticsML
 Machine Learning Experiments on the NIST Chemical Kinetics Database.
 
+In this work, we examine the relationship between chemical bonds formed and broken during reactions and Arrhenius kinetic parameters, including activation energy and reaction order, using machine learning approaches. We utilized the NIST kinetic database to acquire kinetic data and then performed thorough data cleaning to convert HTML-based data to more accessible dataframe format. We constructed a feature vector that contains broken and formed bonds and utilized it to train our models to predict activation energy and reaction order. The Random Forest based classification model was chosen because this robust ensemble method has a more intuitive basis behind its working (decision trees), and is also resilient to overfitting. Huge class imbalance was encountered in favor of second order reactions and oversampling of the minority classes was done by random oversampling and synthetic minority over-sampling technique (SMOTE). A high prediction score of around 95\% was achieved. In regards to regression for predicting activation energy, the results obtained call for the engineering of more comprehensive/informative feature vectors. Finally, we assessed our results based on statistical and chemical engineering knowledge. 
+
 ### Packages you may need to install:
 ##### SciPy Stack | https://www.scipy.org/install.html
 ##### NumPy | https://www.scipy.org/install.html
