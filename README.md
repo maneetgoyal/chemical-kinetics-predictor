@@ -11,6 +11,7 @@ Machine Learning Experiments on the NIST Chemical Kinetics Database.
 ##### PubChemPy | https://pubchempy.readthedocs.io/en/latest/guide/install.html
 ##### Scikit-learn | http://scikit-learn.org/stable/install.html
 ##### imbalanced-learn | http://contrib.scikit-learn.org/imbalanced-learn/stable/install.html
+##### seaborn | https://seaborn.pydata.org/installing.html#installing
 
 ### Project Package Skeleton
 ![alt text](https://github.gatech.edu/mgoyal35/kineticsML/blob/master/Report/PackageSkeleton.png)
